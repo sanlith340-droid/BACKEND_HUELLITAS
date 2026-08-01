@@ -9,7 +9,8 @@ Jorge Alejandro Torres Paez
 ## 📁 PLANTILLA DE ESTRUCTURA 
 
 BACKEND_HUELLITAS/
-│   ├── src/
+│   
+├── src
 │   │   ├── config/
 │   │   ├── controllers/
 │   │   ├── routes/
