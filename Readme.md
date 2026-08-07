@@ -8,24 +8,23 @@ Jorge Alejandro Torres Paez
 
 ## 📁 PLANTILLA DE ESTRUCTURA 
 
+```
 BACKEND_HUELLITAS/
-│   
-├── src
-│   │   ├── config/
-│   │   ├── controllers/
-│   │   ├── routes/
-│   │   ├── models/
-│   │   └── app.js
-│   ├── package.json
-│   └── .env.EJEMPLO
-│   └── Readme.md
-│   └──.gitignore
-│   └── requirements.txt
 │
-│ 
-└── database/ 📦 se usa postgresql
-    ├── schema.sql 
-    └── seed.sql
+├── src/
+│   ├── config/
+│   ├── controllers/
+│   ├── routes/
+│   ├── models/
+│   └── app.js
+│
+├── package.json
+├── .env.example
+├── README.md
+├── .gitignore
+├── requirements.txt
+```
+
 
 ## DEPENDENCIAS Y PAQUETES NECESARIO EN REQUIREMENTS 
 
