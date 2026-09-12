@@ -3,28 +3,33 @@
  * config/database.js
  * Instancia real de Sequelize usada por la aplicación (Express).
  *
- * Antes este archivo exponía un Pool de "pg" con SQL puro.
- * Ahora expone la instancia de Sequelize (ORM), y mantiene
- * `query` y `testConnection` con la misma forma que antes
- * (testConnection() y query() => { rows }) para no romper el
- * código que ya dependía de esas funciones (healthcheck, middlewares).
+ * IMPORTANTE: en modo test se conecta a una BD diferente
+ * (por ejemplo "proyectohs_test") para NO tocar los datos reales
+ * cuando corremos los tests automatizados.
  */
 
 require('dotenv').config();
 const { Sequelize } = require('sequelize');
 
+// Si estamos en modo test, usamos una BD distinta:
+//   - Si existe DB_NAME_TEST, la usa
+//   - Si no, agrega "_test" al nombre normal (ej: proyectohs_test)
+// En cualquier otro modo, usa el nombre normal.
+const dbName = process.env.NODE_ENV === 'test'
+  ? (process.env.DB_NAME_TEST || `${process.env.DB_NAME || 'proyectohs'}_test`)
+  : (process.env.DB_NAME || 'proyectohs');
+
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'proyectohs',
+  dbName,
   process.env.DB_USER || 'postgres',
   process.env.DB_PASSWORD || 'postgres',
   {
     host: process.env.DB_HOST || 'localhost',
     port: Number(process.env.DB_PORT) || 5432,
     dialect: 'postgres',
-    logging: process.env.NODE_ENV !== 'production' ? console.log : false,
+    // En test NO mostramos las queries SQL (ensucian la salida).
+    logging: (process.env.NODE_ENV === 'development') ? console.log : false,
     define: {
-      // Los nombres de tabla ya vienen definidos manualmente (tableName)
-      // por cada modelo, así que no queremos pluralización automática.
       freezeTableName: true,
     },
     pool: {
@@ -36,22 +41,12 @@ const sequelize = new Sequelize(
   }
 );
 
-/**
- * Prueba la conexión a la base de datos.
- * Se usa en el healthcheck (GET /health).
- */
 async function testConnection() {
   await sequelize.authenticate();
   const [result] = await sequelize.query('SELECT NOW() AS now');
   return result[0].now;
 }
 
-/**
- * Compatibilidad con el código legado que usaba `query(sql, params)`
- * y esperaba `{ rows }` (estilo "pg"). Internamente ahora usa Sequelize.
- * Se mantiene únicamente para no tener que tocar utilidades externas
- * a los modelos que aún pudieran usarlo.
- */
 async function query(sql, params = []) {
   const rows = await sequelize.query(sql, {
     bind: params,

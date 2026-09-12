@@ -4,10 +4,10 @@
  * Consultas de disponibilidad usando Sequelize (ORM).
  */
 
-const { Disponibilidad, Usuario } = require('./index');
+const { sequelize, Disponibilidad, Usuario } = require('./index');
 
 function aplanar(d) {
-  const plano = d.get({ plain: true });
+  const plano = d.get ? d.get({ plain: true }) : d;
   return {
     id_disponibilidad: plano.id_disponibilidad,
     id_usuario: plano.id_usuario,
@@ -47,6 +47,38 @@ async function findById(id_disponibilidad) {
     ],
   });
   return disponibilidad ? aplanar(disponibilidad) : null;
+}
+
+/**
+ * Busca una disponibilidad EXACTA (id_usuario + fecha + hora).
+ * Se usa para detectar duplicados antes de insertar.
+ *
+ * IMPORTANTE: Joi convierte el campo "fecha" a un objeto Date antes
+ * de que llegue al servicio. Si le pasamos un Date a PostgreSQL,
+ * se interpreta como UTC y luego ::date lo convierte con la zona
+ * local, lo que puede desplazar la fecha un día.
+ *
+ * Por eso forzamos a convertir el Date a string "YYYY-MM-DD" antes
+ * de pasarlo al SQL. Así la comparación es exacta.
+ */
+async function findExacta({ id_usuario, fecha, hora }) {
+  // Convertimos la fecha a string "YYYY-MM-DD" sin importar
+  // si llega como Date o como string.
+  const fechaStr = fecha instanceof Date
+    ? fecha.toISOString().slice(0, 10)
+    : String(fecha).slice(0, 10);
+
+  const [rows] = await sequelize.query(
+    `SELECT * FROM disponibilidad
+     WHERE id_usuario = $1
+       AND fecha = $2::date
+       AND hora = $3::time
+     LIMIT 1`,
+    {
+      bind: [id_usuario, fechaStr, hora],
+    }
+  );
+  return rows[0] || null;
 }
 
 async function create({ id_usuario, fecha, hora, estado }) {
@@ -111,6 +143,7 @@ async function remove(id_disponibilidad) {
 module.exports = {
   findAll,
   findById,
+  findExacta,
   create,
   update,
   remove,

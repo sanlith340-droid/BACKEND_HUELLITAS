@@ -21,29 +21,35 @@ async function obtenerPorId(id) {
 }
 
 async function crear(datos) {
+  // 1. Validar que el usuario sea especialista
   const especialista = await usuarioModel.findByIdAndRol(datos.id_usuario, 'especialista');
   if (!especialista) {
     throw AppError.badRequest(`El usuario ${datos.id_usuario} no es un especialista`);
   }
 
-  const existentes = await disponibilidadModel.findAll({
+  // 2. Buscar una disponibilidad EXACTA (mismo especialista + misma fecha + misma hora).
+  //    La comparación la hace PostgreSQL directamente, que maneja bien el tipo TIME.
+  //    (En JavaScript no podemos comparar String(Date) === "08:00:00", nunca coincide).
+  const duplicada = await disponibilidadModel.findExacta({
     id_usuario: datos.id_usuario,
-    fecha: datos.fecha
+    fecha: datos.fecha,
+    hora: datos.hora,
   });
 
-  const mismoHorario = existentes.some(item => String(item.hora) === String(datos.hora));
-  if (mismoHorario) {
+  if (duplicada) {
     throw AppError.conflict('El especialista ya tiene una disponibilidad para esa fecha y hora');
   }
 
+  // 3. Crear la disponibilidad
   try {
     return await disponibilidadModel.create({
       id_usuario: datos.id_usuario,
       fecha: datos.fecha,
       hora: datos.hora,
-      estado: datos.estado || 'disponible'
+      estado: datos.estado || 'disponible',
     });
   } catch (error) {
+    // Si por alguna razón se escapa el duplicado, la BD lo detecta (unique constraint)
     if (error.code === '23505') {
       throw AppError.conflict('Ya existe una disponibilidad para ese especialista, fecha y hora');
     }

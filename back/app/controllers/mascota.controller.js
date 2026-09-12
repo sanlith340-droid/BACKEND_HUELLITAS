@@ -4,17 +4,17 @@ const asyncHandler = require('../utils/asyncHandler');
 const { ok, created } = require('../utils/response');
 const AppError = require('../utils/AppError');
 
-async function listar(req, res) {
+const listar = asyncHandler(async (req, res) => {
   const mascotas = await mascotaService.listar();
   return ok(res, mascotas, 'Mascotas y propietarios listados correctamente');
-}
+});
 
-async function obtener(req, res) {
+const obtener = asyncHandler(async (req, res) => {
   const mascota = await mascotaService.obtenerPorId(req.params.id);
   return ok(res, mascota, 'Mascota encontrada correctamente');
-}
+});
 
-async function crear(req, res) {
+const crear = asyncHandler(async (req, res) => {
   if (!req.user) {
     throw AppError.unauthorized('Usuario no autenticado');
   }
@@ -28,10 +28,6 @@ async function crear(req, res) {
 
   const mascota = await mascotaService.crearConUsuario(req.body, req.user.id);
   return created(res, mascota, 'Mascota registrada exitosamente');
-}
+});
 
-module.exports = {
-  listar,
-  obtener,
-  crear,
-};
+module.exports = { listar, obtener, crear };

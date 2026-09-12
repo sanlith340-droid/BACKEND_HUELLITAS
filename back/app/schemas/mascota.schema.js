@@ -1,4 +1,3 @@
-// app/schemas/mascota.schema.js
 const Joi = require('joi');
 
 const ESPECIES_PERMITIDAS = ['perro', 'gato'];
@@ -12,8 +11,13 @@ const crearMascotaSchema = Joi.object({
   id_raza: Joi.number().integer().positive().required()
 });
 
+const idParamSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+});
+
 module.exports = {
   crearMascotaSchema,
+  idParamSchema,
   ESPECIES_PERMITIDAS,
   GENEROS_PERMITIDOS
 };
