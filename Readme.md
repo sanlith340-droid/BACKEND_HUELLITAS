@@ -16,7 +16,9 @@ ESTRUCTURA DEL PROYECTO Huellitas_Saludables_PRO
 
 back  - // BACKEND Desarollado por Jorge 
 
-database  // FULLSTACK: Sara , Jorge , Santiago  
+database  // Sara , Jorge , Santiago
+
+//FULLSTACK: Sara
 
 veterinaria-frontend  // Santiago 
 
