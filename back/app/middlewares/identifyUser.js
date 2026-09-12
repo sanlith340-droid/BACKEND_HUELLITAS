@@ -42,7 +42,7 @@ const identifyUser = async (req, res, next) => {
   console.log('[identifyUser] Método:', req.method);
 
   if (isPublicRoute(req)) {
-    console.log('[identifyUser] ✅ Ruta pública - saltando autenticación');
+    console.log('[identifyUser]  Ruta pública - saltando autenticación');
     return next();
   }
 
@@ -53,7 +53,7 @@ const identifyUser = async (req, res, next) => {
     const token = extraerToken(req);
 
     if (!token) {
-      console.log('[identifyUser] ❌ FALTA EL TOKEN (Authorization: Bearer <token>)');
+      console.log('[identifyUser]  FALTA EL TOKEN (Authorization: Bearer <token>)');
       return res.status(401).json({
         success: false,
         message: 'Falta el token de autenticación. Envía el header Authorization: Bearer <token>.',
@@ -65,7 +65,7 @@ const identifyUser = async (req, res, next) => {
     try {
       payload = verificarToken(token);
     } catch (err) {
-      console.log('[identifyUser] ❌ TOKEN INVÁLIDO O EXPIRADO:', err.message);
+      console.log('[identifyUser]  TOKEN INVÁLIDO O EXPIRADO:', err.message);
       return res.status(401).json({
         success: false,
         message: 'Token inválido o expirado. Inicia sesión nuevamente.',
@@ -73,7 +73,7 @@ const identifyUser = async (req, res, next) => {
       });
     }
 
-    console.log('[identifyUser] 📋 Payload del token:', payload);
+    console.log('[identifyUser]  Payload del token:', payload);
 
     // ============================================================
     // VERIFICAR QUE EL USUARIO SIGA EXISTIENDO EN BD
@@ -83,10 +83,10 @@ const identifyUser = async (req, res, next) => {
       attributes: ['id_usuario', 'rol'],
     });
 
-    console.log('[identifyUser] 📊 Resultado BD:', usuarioEncontrado ? usuarioEncontrado.get({ plain: true }) : null);
+    console.log('[identifyUser]  Resultado BD:', usuarioEncontrado ? usuarioEncontrado.get({ plain: true }) : null);
 
     if (!usuarioEncontrado) {
-      console.log('[identifyUser] ❌ USUARIO NO ENCONTRADO');
+      console.log('[identifyUser]  USUARIO NO ENCONTRADO');
       return res.status(401).json({
         success: false,
         message: 'El usuario del token ya no existe',
@@ -105,12 +105,12 @@ const identifyUser = async (req, res, next) => {
       rol: rolReal
     };
 
-    console.log('[identifyUser] ✅ AUTENTICACIÓN EXITOSA');
-    console.log('[identifyUser] 👤 req.user:', req.user);
+    console.log('[identifyUser]  AUTENTICACIÓN EXITOSA');
+    console.log('[identifyUser]  req.user:', req.user);
 
     next();
   } catch (error) {
-    console.error('[identifyUser] ❌ ERROR:', error);
+    console.error('[identifyUser]  ERROR:', error);
     console.error('[identifyUser] Stack:', error.stack);
     return res.status(500).json({
       success: false,
