@@ -1,164 +1,83 @@
-// app/services/auth.service.js
-/**
- * services/auth.service.js
- * Lógica de negocio para autenticación.
- */
-
-const authModel = require('../models/auth.model');
+const { Op } = require('sequelize');
+const { Usuario } = require('../models');
 const AppError = require('../utils/AppError');
+
+const PREFIX = { usuario:'USU', especialista:'ESP', recepcionista:'REC', admin:'ADM' };
+
+async function generarIdUsuario(rol) {
+  const prefix = PREFIX[rol] || 'USU';
+  const ultimo = await Usuario.findOne({
+    where: { id_usuario: { [Op.like]: `${prefix}%` } },
+    order: [['id_usuario', 'DESC']],
+  });
+  if (!ultimo) return `${prefix}001`;
+  const num = parseInt(ultimo.id_usuario.replace(prefix, ''), 10) + 1;
+  return `${prefix}${String(num).padStart(3, '0')}`;
+}
+
+function sinPassword(inst) {
+  const u = inst.toJSON ? inst.toJSON() : { ...inst };
+  delete u.contrasena;
+  return u;
+}
 
 async function login({ correo, contrasena }) {
   console.log('[auth.service] Login para:', correo);
-
-  const usuario = await authModel.findByEmail(correo);
-  
-  if (!usuario) {
-    console.log('[auth.service] ❌ Usuario no encontrado');
+  const usuario = await Usuario.findOne({ where: { correo } });
+  if (!usuario) throw AppError.unauthorized('Credenciales inválidas. Verifica tu correo y contraseña.');
+  if (contrasena !== usuario.contrasena) {
     throw AppError.unauthorized('Credenciales inválidas. Verifica tu correo y contraseña.');
   }
-
-  console.log('[auth.service] ✅ Usuario encontrado:', usuario.id_usuario);
-
-  // NOTA: En producción usar bcrypt.compare()
-  const passwordMatch = contrasena === usuario.contrasena;
-  
-  if (!passwordMatch) {
-    console.log('[auth.service] ❌ Contraseña incorrecta');
-    throw AppError.unauthorized('Credenciales inválidas. Verifica tu correo y contraseña.');
-  }
-
-  console.log('[auth.service] ✅ Contraseña correcta');
-
-  const { contrasena: _, ...usuarioSinPassword } = usuario;
-
   return {
-    usuario: usuarioSinPassword,
-    token: `mock-token-${usuario.id_usuario}-${Date.now()}`
+    usuario: sinPassword(usuario),
+    token: `mock-token-${usuario.id_usuario}-${Date.now()}`,
   };
 }
 
-async function registro(datosUsuario) {
-  const {
-    nombre,
-    apellidos,
-    telefono,
-    correo,
-    direccion,
-    contrasena,
-    tipo
-  } = datosUsuario;
+async function registro(datos) {
+  const existe = await Usuario.findOne({ where: { correo: datos.correo } });
+  if (existe) throw AppError.conflict('El correo electrónico ya está registrado');
 
-  console.log('[auth.service] Registro usuario:', correo);
-
-  const emailExists = await authModel.existsByEmail(correo);
-  if (emailExists) {
-    throw AppError.conflict('El correo electrónico ya está registrado');
-  }
-
-  const id_usuario = await authModel.generarIdUsuario('usuario');
-
-  // NOTA: En producción usar bcrypt.hash()
-  const hashedPassword = contrasena;
-
-  const nuevoUsuario = await authModel.create({
+  const id_usuario = await generarIdUsuario('usuario');
+  const creado = await Usuario.create({
     id_usuario,
-    nombre,
-    apellidos,
-    telefono,
-    direccion,
-    correo,
-    contrasena: hashedPassword,
+    nombre: datos.nombre,
+    apellidos: datos.apellidos,
+    telefono: datos.telefono,
+    direccion: datos.direccion,
+    correo: datos.correo,
+    contrasena: datos.contrasena,
     especializacion: null,
-    tipo: tipo || 'principal',
-    rol: 'usuario'
+    tipo: datos.tipo || 'principal',
+    rol: 'usuario',
   });
 
-  console.log('[auth.service] ✅ Usuario creado:', id_usuario);
-
-  const { contrasena: _, ...usuarioSinPassword } = nuevoUsuario;
-
-  return {
-    usuario: usuarioSinPassword,
-    token: `mock-token-${nuevoUsuario.id_usuario}-${Date.now()}`
-  };
+  return { usuario: sinPassword(creado), token: `mock-token-${id_usuario}-${Date.now()}` };
 }
 
-async function registroAdmin(datosUsuario, adminId) {
-  const {
-    nombre,
-    apellidos,
-    telefono,
-    correo,
-    direccion,
-    contrasena,
-    especializacion,
-    rol
-  } = datosUsuario;
-
-  console.log('[auth.service] RegistroAdmin - Admin ID:', adminId);
-  console.log('[auth.service] RegistroAdmin - Datos:', { nombre, correo, rol });
-
-  // 1. Validar que el administrador tenga permisos
-  const admin = await authModel.findById(adminId);
+async function registroAdmin(datos, adminId) {
+  const admin = await Usuario.findByPk(adminId);
   if (!admin || admin.rol !== 'admin') {
-    console.log('[auth.service] ❌ Admin no encontrado o no es admin');
     throw AppError.forbidden('Solo los administradores pueden crear cuentas de otros roles');
   }
+  const existe = await Usuario.findOne({ where: { correo: datos.correo } });
+  if (existe) throw AppError.conflict('El correo electrónico ya está registrado');
 
-  console.log('[auth.service] ✅ Admin verificado:', adminId);
-
-  // 2. Validar que el correo no esté registrado
-  const emailExists = await authModel.existsByEmail(correo);
-  if (emailExists) {
-    console.log('[auth.service] ❌ Email ya registrado');
-    throw AppError.conflict('El correo electrónico ya está registrado');
-  }
-
-  // 3. Generar ID automático
-  const id_usuario = await authModel.generarIdUsuario(rol);
-  console.log('[auth.service] 📝 ID generado:', id_usuario);
-
-  // 4. En producción: Hashear contraseña
-  const hashedPassword = contrasena;
-
-  // 5. Determinar especialización y tipo SEGÚN EL ROL
-  let especializacionFinal = null;
-  let tipoFinal = null;
-
-  if (rol === 'especialista') {
-    especializacionFinal = especializacion;
-    console.log('[auth.service] 📝 Especialización:', especializacionFinal);
-  }
-
-  console.log('[auth.service] 📝 tipoFinal:', tipoFinal);
-
-  // 6. Crear usuario
-  const nuevoUsuario = await authModel.create({
+  const id_usuario = await generarIdUsuario(datos.rol);
+  const creado = await Usuario.create({
     id_usuario,
-    nombre,
-    apellidos,
-    telefono,
-    direccion,
-    correo,
-    contrasena: hashedPassword,
-    especializacion: especializacionFinal,
-    tipo: tipoFinal,
-    rol
+    nombre: datos.nombre,
+    apellidos: datos.apellidos,
+    telefono: datos.telefono,
+    direccion: datos.direccion,
+    correo: datos.correo,
+    contrasena: datos.contrasena,
+    especializacion: datos.rol === 'especialista' ? datos.especializacion : null,
+    tipo: null,
+    rol: datos.rol,
   });
 
-  console.log('[auth.service] ✅ Usuario creado:', id_usuario);
-
-  // 7. Eliminar contraseña del objeto de respuesta
-  const { contrasena: _, ...usuarioSinPassword } = nuevoUsuario;
-
-  return {
-    usuario: usuarioSinPassword,
-    token: `mock-token-${nuevoUsuario.id_usuario}-${Date.now()}`
-  };
+  return { usuario: sinPassword(creado), token: `mock-token-${id_usuario}-${Date.now()}` };
 }
 
-module.exports = {
-  login,
-  registro,
-  registroAdmin
-};
+module.exports = { login, registro, registroAdmin };

@@ -1,19 +1,13 @@
-// app/models/raza.model.js
-const { query } = require('../config/database');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-async function findById(id_raza) {
-  const sql = `SELECT id_raza, nombre, fecha_registro FROM raza WHERE id_raza = $1`;
-  const { rows } = await query(sql, [id_raza]);
-  return rows[0] || null;
-}
+const Raza = sequelize.define('Raza', {
+  id_raza:        { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  nombre:         { type: DataTypes.STRING(200), allowNull: false },
+  fecha_registro: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+}, {
+  tableName: 'raza',
+  timestamps: false,
+});
 
-async function findAll() {
-  const sql = `SELECT id_raza, nombre, fecha_registro FROM raza ORDER BY nombre ASC`;
-  const { rows } = await query(sql);
-  return rows;
-}
-
-module.exports = {
-  findById,
-  findAll,
-};
+module.exports = Raza;

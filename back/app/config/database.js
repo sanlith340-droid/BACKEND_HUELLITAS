@@ -1,45 +1,53 @@
 // app/config/database.js
-/**
- * config/database.js
- * Configuración del pool de conexiones a PostgreSQL.
- */
-
 require('dotenv').config();
-const { Pool } = require('pg');
+const { Sequelize, QueryTypes } = require('sequelize');
 
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: Number(process.env.DB_PORT) || 5432,
-  database: process.env.DB_NAME || 'proyectohs',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
-
-pool.on('error', (err) => {
-  console.error('[db] Error inesperado:', err.message);
-});
-
-async function query(text, params) {
-  const start = Date.now();
-  const result = await pool.query(text, params);
-  if (process.env.NODE_ENV !== 'production') {
-    const duration = Date.now() - start;
-    console.log('[db] query', { text, duration, rows: result.rowCount });
+const sequelize = new Sequelize(
+  process.env.DB_NAME || 'proyectohs',
+  process.env.DB_USER || 'postgres',
+  process.env.DB_PASSWORD || 'postgres',
+  {
+    host: process.env.DB_HOST || 'localhost',
+    port: Number(process.env.DB_PORT) || 5432,
+    dialect: 'postgres',
+    logging: process.env.NODE_ENV === 'development'
+      ? (msg) => console.log('[sql]', msg)
+      : false,
+    pool: { max: 10, min: 0, acquire: 30000, idle: 10000 },
+    define: { timestamps: false, freezeTableName: true, underscored: false },
   }
-  return result;
-}
+);
 
-async function getClient() {
-  const client = await pool.connect();
-  return client;
+async function query(text, params = []) {
+  const isSelect = /^\s*SELECT/i.test(text);
+  if (isSelect) {
+    const rows = await sequelize.query(text, {
+      replacements: params,
+      type: QueryTypes.SELECT,
+    });
+    return { rows, rowCount: rows.length };
+  }
+  const [results, metadata] = await sequelize.query(text, {
+    replacements: params,
+  });
+  return {
+    rows: Array.isArray(results) ? results : [],
+    rowCount: metadata?.rowCount ?? 0,
+  };
 }
 
 async function testConnection() {
-  const res = await pool.query('SELECT NOW() AS now');
-  return res.rows[0].now;
+  await sequelize.authenticate();
+  const rows = await sequelize.query('SELECT NOW() AS now', {
+    type: QueryTypes.SELECT,
+  });
+  return rows[0].now;
 }
 
-module.exports = { pool, query, getClient, testConnection };
+module.exports = {
+  sequelize,
+  Sequelize,
+  query,
+  testConnection,
+  getClient: () => sequelize,
+};

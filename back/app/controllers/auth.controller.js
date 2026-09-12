@@ -5,7 +5,7 @@
  */
 
 const authService = require('../services/auth.service');
-const authModel = require('../models/auth.model');
+const { Usuario } = require('../models');
 const asyncHandler = require('../utils/asyncHandler');
 const { ok, created } = require('../utils/response');
 const AppError = require('../utils/AppError');
@@ -60,13 +60,13 @@ const perfil = asyncHandler(async (req, res) => {
     throw AppError.unauthorized('Usuario no autenticado');
   }
 
-  const usuario = await authModel.findById(req.user.id);
-  if (!usuario) {
-    throw AppError.notFound('Usuario no encontrado');
-  }
-
-  const { contrasena, ...usuarioSinPassword } = usuario;
-  return ok(res, usuarioSinPassword, 'Perfil obtenido correctamente');
+const usuario = await Usuario.findByPk(req.user.id, {
+  attributes: { exclude: ['contrasena'] },
+});
+if (!usuario) {
+  throw AppError.notFound('Usuario no encontrado');
+}
+return ok(res, usuario, 'Perfil obtenido correctamente');
 });
 
 module.exports = {
